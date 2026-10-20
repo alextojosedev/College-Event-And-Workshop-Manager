@@ -1,5 +1,7 @@
 package com.college.eventmanager.ui;
 
+import com.college.eventmanager.dao.UserDao;
+import com.college.eventmanager.dao.UserDaoImpl;
 import com.college.eventmanager.exception.AppException;
 import com.college.eventmanager.model.Event;
 import com.college.eventmanager.model.EventCategory;
@@ -51,8 +53,8 @@ public class StudentDashboard extends JFrame {
         this.registrationService = new RegistrationService();
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1050, 700);
-        setMinimumSize(new Dimension(900, 580));
+        setSize(1080, 700);
+        setMinimumSize(new Dimension(950, 600));
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
         getContentPane().setBackground(Theme.BG_MAIN);
@@ -74,11 +76,11 @@ public class StudentDashboard extends JFrame {
     }
 
     private JPanel createTopNavbar() {
-        JPanel nav = new JPanel(new BorderLayout());
+        JPanel nav = new JPanel(new BorderLayout(10, 0));
         nav.setBackground(Theme.PRIMARY_DARK);
-        nav.setBorder(new EmptyBorder(12, 20, 12, 20));
+        nav.setBorder(new EmptyBorder(10, 16, 10, 16));
 
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
         left.setOpaque(false);
 
         JLabel brand = new JLabel("College Event & Workshop Manager");
@@ -95,18 +97,24 @@ public class StudentDashboard extends JFrame {
         left.add(brand);
         left.add(roleBadge);
 
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 2));
         right.setOpaque(false);
 
-        JLabel userLabel = new JLabel("Welcome, " + student.getFullName() + " (" + 
+        JLabel userLabel = new JLabel(student.getFullName() + " (" + 
             (student.getStudentIdNumber() != null ? student.getStudentIdNumber() : "ID: " + student.getUserId()) + ")");
         userLabel.setFont(Theme.FONT_REGULAR);
         userLabel.setForeground(new Color(203, 213, 225));
+
+        JButton deleteAccountBtn = Theme.createDangerButton("🗑 Delete My Account");
+        deleteAccountBtn.setFont(Theme.FONT_SMALL);
+        deleteAccountBtn.setBackground(new Color(180, 30, 30));
+        deleteAccountBtn.addActionListener(e -> handleDeleteOwnAccount());
 
         JButton logoutBtn = Theme.createDangerButton("Log Out");
         logoutBtn.addActionListener(e -> handleLogout());
 
         right.add(userLabel);
+        right.add(deleteAccountBtn);
         right.add(logoutBtn);
 
         nav.add(left, BorderLayout.WEST);
@@ -149,25 +157,41 @@ public class StudentDashboard extends JFrame {
         panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 4, 4, 4));
 
-        // Search & Filter Toolbar
+        // Two-row Toolbar to prevent shifting and overlapping
         JPanel toolbar = Theme.createCardPanel();
-        toolbar.setLayout(new BorderLayout(10, 0));
+        toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.Y_AXIS));
+        toolbar.setBorder(new EmptyBorder(8, 12, 8, 12));
 
-        JPanel filterLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        filterLeft.setOpaque(false);
+        // Row 1: Action Buttons
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actionRow.setOpaque(false);
 
-        filterLeft.add(new JLabel("Search Events:"));
+        JButton registerBtn = Theme.createSuccessButton("Register for Event");
+        registerBtn.addActionListener(e -> handleRegisterSelectedEvent());
+
+        JButton detailsBtn = Theme.createSecondaryButton("View Details");
+        detailsBtn.addActionListener(e -> viewSelectedEventDetails());
+
+        actionRow.add(registerBtn);
+        actionRow.add(detailsBtn);
+
+        // Row 2: Search & Filter Controls
+        JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        filterRow.setOpaque(false);
+
+        filterRow.add(new JLabel("Search Events:"));
         searchField = Theme.createTextField(16);
         searchField.setToolTipText("Filter by name, venue, description...");
-        filterLeft.add(searchField);
+        filterRow.add(searchField);
 
-        filterLeft.add(new JLabel("Category:"));
+        filterRow.add(Box.createHorizontalStrut(6));
+        filterRow.add(new JLabel("Category:"));
         categoryCombo = new JComboBox<>();
         categoryCombo.addItem("All Categories");
         for (EventCategory cat : EventCategory.values()) {
             categoryCombo.addItem(cat.getDisplayName());
         }
-        filterLeft.add(categoryCombo);
+        filterRow.add(categoryCombo);
 
         JButton filterBtn = Theme.createPrimaryButton("Search");
         filterBtn.addActionListener(e -> applyFilters());
@@ -179,23 +203,12 @@ public class StudentDashboard extends JFrame {
             loadUpcomingEvents();
         });
 
-        filterLeft.add(filterBtn);
-        filterLeft.add(resetBtn);
-        toolbar.add(filterLeft, BorderLayout.WEST);
+        filterRow.add(filterBtn);
+        filterRow.add(resetBtn);
 
-        // Action Buttons
-        JPanel actionRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
-        actionRight.setOpaque(false);
-
-        JButton detailsBtn = Theme.createSecondaryButton("View Details");
-        detailsBtn.addActionListener(e -> viewSelectedEventDetails());
-
-        JButton registerBtn = Theme.createSuccessButton("Register for Event");
-        registerBtn.addActionListener(e -> handleRegisterSelectedEvent());
-
-        actionRight.add(detailsBtn);
-        actionRight.add(registerBtn);
-        toolbar.add(actionRight, BorderLayout.EAST);
+        toolbar.add(actionRow);
+        toolbar.add(Box.createVerticalStrut(4));
+        toolbar.add(filterRow);
 
         panel.add(toolbar, BorderLayout.NORTH);
 
@@ -233,15 +246,8 @@ public class StudentDashboard extends JFrame {
         panel.setBorder(new EmptyBorder(10, 4, 4, 4));
 
         JPanel toolbar = Theme.createCardPanel();
-        toolbar.setLayout(new BorderLayout(10, 0));
-
-        JLabel info = new JLabel("Manage your booked events, download/view details, or cancel your seat reservation.");
-        info.setFont(Theme.FONT_REGULAR);
-        info.setForeground(Theme.TEXT_SECONDARY);
-        toolbar.add(info, BorderLayout.WEST);
-
-        JPanel actionRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
-        actionRight.setOpaque(false);
+        toolbar.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 6));
+        toolbar.setBorder(new EmptyBorder(6, 12, 6, 12));
 
         JButton viewTicketBtn = Theme.createPrimaryButton("View Pass Details");
         viewTicketBtn.addActionListener(e -> viewSelectedPass());
@@ -252,10 +258,14 @@ public class StudentDashboard extends JFrame {
         JButton refreshBtn = Theme.createSecondaryButton("Refresh");
         refreshBtn.addActionListener(e -> loadMyRegistrations());
 
-        actionRight.add(viewTicketBtn);
-        actionRight.add(cancelBtn);
-        actionRight.add(refreshBtn);
-        toolbar.add(actionRight, BorderLayout.EAST);
+        JLabel info = new JLabel("  (Select a booking to view pass details or cancel seat reservation)");
+        info.setFont(Theme.FONT_SMALL);
+        info.setForeground(Theme.TEXT_SECONDARY);
+
+        toolbar.add(viewTicketBtn);
+        toolbar.add(cancelBtn);
+        toolbar.add(refreshBtn);
+        toolbar.add(info);
 
         panel.add(toolbar, BorderLayout.NORTH);
 
@@ -301,6 +311,26 @@ public class StudentDashboard extends JFrame {
         addProfileField(card, "Contact Phone", student.getPhone() != null && !student.getPhone().isEmpty() ? student.getPhone() : "Not provided");
         addProfileField(card, "Username", student.getUsername());
         addProfileField(card, "Role Status", student.getRoleDisplayName());
+
+        // Delete Account Button in Profile Tab
+        card.add(Box.createVerticalStrut(20));
+        JSeparator sep = new JSeparator();
+        sep.setMaximumSize(new Dimension(Short.MAX_VALUE, 1));
+        sep.setForeground(new Color(220, 50, 50));
+        card.add(sep);
+        card.add(Box.createVerticalStrut(14));
+
+        JLabel dangerLabel = new JLabel("Danger Zone");
+        dangerLabel.setFont(Theme.FONT_BOLD);
+        dangerLabel.setForeground(new Color(200, 30, 30));
+        dangerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(dangerLabel);
+        card.add(Box.createVerticalStrut(8));
+
+        JButton deleteBtn = Theme.createDangerButton("Delete My Account Permanently");
+        deleteBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        deleteBtn.addActionListener(e -> handleDeleteOwnAccount());
+        card.add(deleteBtn);
 
         panel.add(card);
         return panel;
@@ -547,6 +577,79 @@ public class StudentDashboard extends JFrame {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Failed to cancel registration: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
+        }
+    }
+
+    private void handleDeleteOwnAccount() {
+        // Ask for password confirmation first
+        JPasswordField pwField = new JPasswordField(20);
+        JPanel confirmPanel = new JPanel(new BorderLayout(0, 8));
+        confirmPanel.add(new JLabel("<html><b>⚠ WARNING: This will permanently delete your account!</b><br>" +
+            "All your event registrations will also be deleted.<br><br>" +
+            "Enter your password to confirm:</html>"), BorderLayout.NORTH);
+        confirmPanel.add(pwField, BorderLayout.CENTER);
+
+        int result = JOptionPane.showConfirmDialog(
+            this,
+            confirmPanel,
+            "Confirm Account Deletion",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.ERROR_MESSAGE
+        );
+
+        if (result != JOptionPane.OK_OPTION) return;
+
+        String enteredPassword = new String(pwField.getPassword());
+        if (enteredPassword.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Password cannot be empty.", "Cancelled", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Verify password before deleting
+        com.college.eventmanager.service.AuthService authService = new com.college.eventmanager.service.AuthService();
+        try {
+            authService.authenticate(student.getUsername(), enteredPassword);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                "Incorrect password. Account deletion cancelled.",
+                "Authentication Failed",
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Final confirmation
+        int finalConfirm = JOptionPane.showConfirmDialog(this,
+            "This is your LAST chance.\n\nAre you absolutely sure you want to delete your account?\n\n" +
+            "  Name   : " + student.getFullName() + "\n" +
+            "  Roll No: " + (student.getStudentIdNumber() != null ? student.getStudentIdNumber() : "N/A") + "\n\n" +
+            "This CANNOT be undone!",
+            "Final Confirmation",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.ERROR_MESSAGE);
+
+        if (finalConfirm != JOptionPane.YES_OPTION) return;
+
+        try {
+            UserDao userDao = new UserDaoImpl();
+            boolean ok = userDao.delete(student.getUserId());
+            if (ok) {
+                JOptionPane.showMessageDialog(this,
+                    "Your account has been deleted successfully.\nYou will now be redirected to the login screen.",
+                    "Account Deleted",
+                    JOptionPane.INFORMATION_MESSAGE);
+                dispose();
+                SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Could not delete account. Please try again.",
+                    "Delete Failed",
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                "Error deleting account: " + ex.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
         }
     }
 
