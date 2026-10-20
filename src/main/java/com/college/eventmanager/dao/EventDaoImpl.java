@@ -14,6 +14,7 @@ import java.util.Optional;
 
 /**
  * JDBC implementation of EventDao.
+ * Supports transparent fallback to InMemoryStore when running in Offline Demo Mode.
  */
 public class EventDaoImpl implements EventDao {
 
@@ -50,6 +51,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public Optional<Event> findById(int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findEventById(eventId);
+        }
         String sql = "SELECT * FROM events WHERE event_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -67,6 +71,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public Optional<Event> findByCode(String eventCode) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findEventByCode(eventCode);
+        }
         String sql = "SELECT * FROM events WHERE event_code = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -84,6 +91,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public List<Event> findAll() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findAllEvents();
+        }
         List<Event> list = new ArrayList<>();
         String sql = "SELECT * FROM events ORDER BY date_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -100,6 +110,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public List<Event> findUpcoming() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findUpcomingEvents();
+        }
         List<Event> list = new ArrayList<>();
         String sql = "SELECT * FROM events WHERE status = 'UPCOMING' ORDER BY date_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -116,6 +129,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public List<Event> search(String query, String category, EventStatus status) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().searchEvents(query, category, status);
+        }
         List<Event> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM events WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
@@ -159,6 +175,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public Event create(Event event) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().createEvent(event);
+        }
         String sql = "INSERT INTO events (event_code, title, description, category, date_time, venue, max_capacity, available_seats, status, created_by) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -196,6 +215,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public boolean update(Event event) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().updateEvent(event);
+        }
         String sql = "UPDATE events SET title = ?, description = ?, category = ?, date_time = ?, venue = ?, " +
                      "max_capacity = ?, available_seats = ?, status = ? WHERE event_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -217,6 +239,14 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public boolean updateStatus(int eventId, EventStatus status) {
+        if (DatabaseConnection.isDemoMode()) {
+            Optional<Event> opt = InMemoryStore.getInstance().findEventById(eventId);
+            if (opt.isPresent()) {
+                opt.get().setStatus(status);
+                return true;
+            }
+            return false;
+        }
         String sql = "UPDATE events SET status = ? WHERE event_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -230,12 +260,17 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public boolean cancelEvent(int eventId) {
-        // Atomic cancellation of event and registrations is handled in EventService using a transaction
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().cancelEvent(eventId);
+        }
         return updateStatus(eventId, EventStatus.CANCELLED);
     }
 
     @Override
     public boolean delete(int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().deleteEvent(eventId);
+        }
         String sql = "DELETE FROM events WHERE event_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -248,6 +283,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public int countTotalEvents() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().countTotalEvents();
+        }
         String sql = "SELECT COUNT(*) FROM events";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -261,6 +299,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public int countUpcomingEvents() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().countUpcomingEvents();
+        }
         String sql = "SELECT COUNT(*) FROM events WHERE status = 'UPCOMING'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -274,6 +315,9 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     public int sumAvailableSeats() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().sumAvailableSeats();
+        }
         String sql = "SELECT COALESCE(SUM(available_seats), 0) FROM events WHERE status = 'UPCOMING'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);

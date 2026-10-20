@@ -15,6 +15,7 @@ import java.util.Optional;
 /**
  * JDBC implementation of UserDao.
  * Uses PreparedStatements for all operations to prevent SQL Injection.
+ * Supports transparent fallback to InMemoryStore when running in Offline Demo Mode.
  */
 public class UserDaoImpl implements UserDao {
 
@@ -40,6 +41,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public Optional<User> findById(int userId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findUserById(userId);
+        }
         String sql = "SELECT * FROM users WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -57,6 +61,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public Optional<User> findByUsername(String username) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findUserByUsername(username);
+        }
         String sql = "SELECT * FROM users WHERE username = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -74,6 +81,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public Optional<User> findByEmail(String email) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findUserByEmail(email);
+        }
         String sql = "SELECT * FROM users WHERE email = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -91,6 +101,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public User create(User user) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().createUser(user);
+        }
         String sql = "INSERT INTO users (username, password_hash, full_name, email, phone, role, student_id_number, department) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -134,6 +147,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public boolean update(User user) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().updateUser(user);
+        }
         String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, student_id_number = ?, department = ? WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -156,6 +172,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public boolean delete(int userId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().deleteUser(userId);
+        }
         String sql = "DELETE FROM users WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -168,6 +187,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public List<Student> findAllStudents() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findAllStudents();
+        }
         List<Student> list = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE role = 'STUDENT' ORDER BY full_name ASC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -187,6 +209,9 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public int countStudents() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().countStudents();
+        }
         String sql = "SELECT COUNT(*) FROM users WHERE role = 'STUDENT'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);

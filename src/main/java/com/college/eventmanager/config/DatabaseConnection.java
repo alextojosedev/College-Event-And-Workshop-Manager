@@ -14,6 +14,7 @@ import java.sql.Statement;
 public class DatabaseConnection {
     private static final DbConfig CONFIG = new DbConfig();
     private static boolean driverLoaded = false;
+    private static boolean demoMode = false;
 
     static {
         try {
@@ -26,6 +27,14 @@ public class DatabaseConnection {
 
     private DatabaseConnection() {
         // Prevent instantiation
+    }
+
+    public static boolean isDemoMode() {
+        return demoMode;
+    }
+
+    public static void setDemoMode(boolean mode) {
+        demoMode = mode;
     }
 
     public static DbConfig getConfig() {

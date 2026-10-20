@@ -19,6 +19,7 @@ import java.util.Optional;
 /**
  * JDBC implementation of RegistrationDao.
  * Enforces ACID transaction boundaries for registration, seat reservation, and cancellation.
+ * Supports transparent fallback to InMemoryStore when running in Offline Demo Mode.
  */
 public class RegistrationDaoImpl implements RegistrationDao {
 
@@ -47,7 +48,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
         reg.setNotes(rs.getString("notes"));
 
-        // Joined columns if present
         try {
             reg.setStudentName(rs.getString("full_name"));
             reg.setStudentEmail(rs.getString("email"));
@@ -76,6 +76,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public Optional<Registration> findById(int registrationId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findRegById(registrationId);
+        }
         String sql = BASE_SELECT_JOIN + "WHERE r.registration_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -93,6 +96,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public Optional<Registration> findByCode(String registrationCode) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findRegByCode(registrationCode);
+        }
         String sql = BASE_SELECT_JOIN + "WHERE r.registration_code = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -110,6 +116,11 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public Optional<Registration> findByUserAndEvent(int userId, int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findRegsByUserId(userId).stream()
+                .filter(r -> r.getEventId() == eventId)
+                .findFirst();
+        }
         String sql = BASE_SELECT_JOIN + "WHERE r.user_id = ? AND r.event_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -128,6 +139,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public List<Registration> findByUserId(int userId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findRegsByUserId(userId);
+        }
         List<Registration> list = new ArrayList<>();
         String sql = BASE_SELECT_JOIN + "WHERE r.user_id = ? ORDER BY r.registration_date DESC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -146,6 +160,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public List<Registration> findByEventId(int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findRegsByEventId(eventId);
+        }
         List<Registration> list = new ArrayList<>();
         String sql = BASE_SELECT_JOIN + "WHERE r.event_id = ? ORDER BY r.registration_date ASC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -164,6 +181,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public List<Registration> findAll() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().findAllRegistrations();
+        }
         List<Registration> list = new ArrayList<>();
         String sql = BASE_SELECT_JOIN + "ORDER BY r.registration_date DESC";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -180,6 +200,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public boolean isUserRegistered(int userId, int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().isUserRegistered(userId, eventId);
+        }
         String sql = "SELECT COUNT(*) FROM registrations WHERE user_id = ? AND event_id = ? AND status = 'CONFIRMED'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -198,6 +221,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public int countTotalRegistrations() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().countTotalRegistrations();
+        }
         String sql = "SELECT COUNT(*) FROM registrations";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -211,6 +237,9 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
     @Override
     public int countActiveRegistrations() {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().countActiveRegistrations();
+        }
         String sql = "SELECT COUNT(*) FROM registrations WHERE status = 'CONFIRMED'";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -222,16 +251,12 @@ public class RegistrationDaoImpl implements RegistrationDao {
         return 0;
     }
 
-    /**
-     * ACID Transaction Implementation:
-     * 1. Lock event row using FOR UPDATE to prevent race conditions.
-     * 2. Verify status is UPCOMING and available_seats > 0.
-     * 3. Insert or reactivate registration.
-     * 4. Decrement available_seats in events.
-     * 5. Commit transaction.
-     */
     @Override
     public Registration registerStudentInTransaction(int userId, int eventId, String notes) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().registerStudent(userId, eventId, notes);
+        }
+
         String checkEventSql = "SELECT available_seats, max_capacity, status, title FROM events WHERE event_id = ? FOR UPDATE";
         String checkExistingSql = "SELECT registration_id, status FROM registrations WHERE user_id = ? AND event_id = ?";
         String insertRegSql = "INSERT INTO registrations (registration_code, user_id, event_id, status, notes) VALUES (?, ?, ?, 'CONFIRMED', ?)";
@@ -243,7 +268,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
             conn = DatabaseConnection.getConnection();
             conn.setAutoCommit(false); // Begin ACID Transaction
 
-            // 1. Lock and inspect event
             int availableSeats = 0;
             String eventStatus = "";
             String eventTitle = "";
@@ -267,7 +291,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
                 throw new EventFullException("Sorry, '" + eventTitle + "' has reached its maximum capacity. No seats available.");
             }
 
-            // 2. Check if student already registered
             Integer existingRegId = null;
             String existingStatus = null;
             try (PreparedStatement ps = conn.prepareStatement(checkExistingSql)) {
@@ -289,7 +312,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
             String finalCode = "";
 
             if (existingRegId != null && "CANCELLED".equalsIgnoreCase(existingStatus)) {
-                // Reactivate cancelled registration
                 try (PreparedStatement ps = conn.prepareStatement(reactivateRegSql)) {
                     ps.setString(1, notes);
                     ps.setInt(2, existingRegId);
@@ -297,7 +319,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
                     finalRegId = existingRegId;
                 }
             } else {
-                // Fresh registration
                 finalCode = generateRegistrationCode();
                 try (PreparedStatement ps = conn.prepareStatement(insertRegSql, Statement.RETURN_GENERATED_KEYS)) {
                     ps.setString(1, finalCode);
@@ -313,7 +334,6 @@ public class RegistrationDaoImpl implements RegistrationDao {
                 }
             }
 
-            // 3. Decrement available seats atomically
             try (PreparedStatement ps = conn.prepareStatement(decrementSeatSql)) {
                 ps.setInt(1, eventId);
                 int updated = ps.executeUpdate();
@@ -322,9 +342,8 @@ public class RegistrationDaoImpl implements RegistrationDao {
                 }
             }
 
-            conn.commit(); // Transaction Successful!
+            conn.commit();
 
-            // Retrieve populated registration
             final int assignedId = finalRegId;
             return findById(assignedId).orElseGet(() -> {
                 Registration r = new Registration();
@@ -337,11 +356,7 @@ public class RegistrationDaoImpl implements RegistrationDao {
 
         } catch (SQLException e) {
             if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    System.err.println("Rollback failed: " + rollbackEx.getMessage());
-                }
+                try { conn.rollback(); } catch (SQLException ignored) {}
             }
             if (e.getErrorCode() == 1062) {
                 throw new DuplicateRegistrationException("You are already registered for this event.");
@@ -349,11 +364,7 @@ public class RegistrationDaoImpl implements RegistrationDao {
             throw new DatabaseException("Transaction failed while registering for event: " + e.getMessage(), e);
         } catch (AppException e) {
             if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    System.err.println("Rollback failed: " + rollbackEx.getMessage());
-                }
+                try { conn.rollback(); } catch (SQLException ignored) {}
             }
             throw e;
         } finally {
@@ -366,15 +377,12 @@ public class RegistrationDaoImpl implements RegistrationDao {
         }
     }
 
-    /**
-     * ACID Transaction Implementation:
-     * 1. Check registration is CONFIRMED and belongs to userId.
-     * 2. Update registration status to CANCELLED with current timestamp.
-     * 3. Increment available_seats in events (up to max_capacity).
-     * 4. Commit transaction.
-     */
     @Override
     public boolean cancelRegistrationInTransaction(int registrationId, int userId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().cancelRegistration(registrationId, userId);
+        }
+
         String checkRegSql = "SELECT r.status, r.event_id, e.max_capacity, e.available_seats " +
                              "FROM registrations r " +
                              "JOIN events e ON r.event_id = e.event_id " +
@@ -403,13 +411,11 @@ public class RegistrationDaoImpl implements RegistrationDao {
                 }
             }
 
-            // 1. Mark registration cancelled
             try (PreparedStatement ps = conn.prepareStatement(cancelRegSql)) {
                 ps.setInt(1, registrationId);
                 ps.executeUpdate();
             }
 
-            // 2. Increment seat
             try (PreparedStatement ps = conn.prepareStatement(incrementSeatSql)) {
                 ps.setInt(1, eventId);
                 ps.executeUpdate();
@@ -437,11 +443,12 @@ public class RegistrationDaoImpl implements RegistrationDao {
         }
     }
 
-    /**
-     * ACID Transaction: Cancel Event and all active registrations.
-     */
     @Override
     public boolean cancelEventAndRegistrationsInTransaction(int eventId) {
+        if (DatabaseConnection.isDemoMode()) {
+            return InMemoryStore.getInstance().cancelEventAndRegistrations(eventId);
+        }
+
         String cancelEventSql = "UPDATE events SET status = 'CANCELLED' WHERE event_id = ?";
         String cancelRegistrationsSql = "UPDATE registrations SET status = 'CANCELLED', cancellation_date = CURRENT_TIMESTAMP, " +
                                         "notes = CONCAT(COALESCE(notes, ''), ' [Event Cancelled by Admin]') " +

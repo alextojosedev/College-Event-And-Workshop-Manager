@@ -177,10 +177,11 @@ public class LoginFrame extends JFrame {
         DatabaseConnection.ConnectionStatus status = DatabaseConnection.testConnection();
         if (status.isConnected()) {
             dbStatusLabel.setText("● MySQL Connected (" + DatabaseConnection.getConfig().getHost() + ":" + DatabaseConnection.getConfig().getPort() + ")");
+            DatabaseConnection.setDemoMode(false);
             dbStatusLabel.setForeground(Theme.SUCCESS);
         } else {
             dbStatusLabel.setText("● MySQL Disconnected: " + status.getMessage());
-            dbStatusLabel.setForeground(Theme.DANGER);
+            dbStatusLabel.setForeground(new Color(217, 119, 6));
         }
     }
 
