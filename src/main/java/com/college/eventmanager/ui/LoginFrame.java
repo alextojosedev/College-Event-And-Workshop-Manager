@@ -180,7 +180,8 @@ public class LoginFrame extends JFrame {
             DatabaseConnection.setDemoMode(false);
             dbStatusLabel.setForeground(Theme.SUCCESS);
         } else {
-            dbStatusLabel.setText("● MySQL Disconnected: " + status.getMessage());
+            DatabaseConnection.setDemoMode(true);
+            dbStatusLabel.setText("● Offline Demo Mode: " + status.getMessage());
             dbStatusLabel.setForeground(new Color(217, 119, 6));
         }
     }

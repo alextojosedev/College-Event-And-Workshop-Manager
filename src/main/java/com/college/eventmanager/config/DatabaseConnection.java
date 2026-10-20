@@ -157,10 +157,19 @@ public class DatabaseConnection {
             "CONSTRAINT fk_reg_event FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE, " +
             "CONSTRAINT uq_user_event_reg UNIQUE (user_id, event_id)) ENGINE=InnoDB";
 
+        String insertDefaultUsers = "INSERT INTO users (username, password_hash, full_name, email, phone, role, student_id_number, department) " +
+            "VALUES " +
+            "('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Dr. Sarah Jenkins', 'admin@college.edu', '9876543210', 'ADMIN', NULL, 'Event Management Cell'), " +
+            "('student1', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'Alex Rivera', 'alex.rivera@student.college.edu', '9123456780', 'STUDENT', 'CS-2024-001', 'Computer Science & Engineering'), " +
+            "('student2', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'Maya Patel', 'maya.patel@student.college.edu', '9123456781', 'STUDENT', 'EC-2024-042', 'Electronics & Communication'), " +
+            "('student3', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'David Kim', 'david.kim@student.college.edu', '9123456782', 'STUDENT', 'ME-2024-015', 'Mechanical Engineering') " +
+            "ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash);";
+
         try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(createUsers);
             stmt.executeUpdate(createEvents);
             stmt.executeUpdate(createRegistrations);
+            stmt.executeUpdate(insertDefaultUsers);
             return true;
         } catch (SQLException e) {
             System.err.println("Could not auto-initialize tables: " + e.getMessage());

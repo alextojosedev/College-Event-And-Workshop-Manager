@@ -86,16 +86,16 @@ CREATE INDEX idx_reg_status      ON registrations(status);
 -- Sample Demonstration Data
 -- Passwords below are hashed using SHA-256 for security:
 -- 'admin123'  -> 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
--- 'student123'-> 68858a74e2d31215b3e64b63896dfa99ff1165a250391ab1eb95d6666838a3d4
+-- 'student123'-> 703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b
 -- -------------------------------------------------------------------
 
 INSERT INTO users (username, password_hash, full_name, email, phone, role, student_id_number, department)
 VALUES
 ('admin',    '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Dr. Sarah Jenkins', 'admin@college.edu',                    '9876543210', 'ADMIN',   NULL,          'Event Management Cell'),
-('student1', '68858a74e2d31215b3e64b63896dfa99ff1165a250391ab1eb95d6666838a3d4', 'Alex Rivera',       'alex.rivera@student.college.edu',      '9123456780', 'STUDENT', 'CS-2024-001', 'Computer Science & Engineering'),
-('student2', '68858a74e2d31215b3e64b63896dfa99ff1165a250391ab1eb95d6666838a3d4', 'Maya Patel',        'maya.patel@student.college.edu',       '9123456781', 'STUDENT', 'EC-2024-042', 'Electronics & Communication'),
-('student3', '68858a74e2d31215b3e64b63896dfa99ff1165a250391ab1eb95d6666838a3d4', 'David Kim',         'david.kim@student.college.edu',        '9123456782', 'STUDENT', 'ME-2024-015', 'Mechanical Engineering')
-ON DUPLICATE KEY UPDATE full_name=VALUES(full_name);
+('student1', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'Alex Rivera',       'alex.rivera@student.college.edu',      '9123456780', 'STUDENT', 'CS-2024-001', 'Computer Science & Engineering'),
+('student2', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'Maya Patel',        'maya.patel@student.college.edu',       '9123456781', 'STUDENT', 'EC-2024-042', 'Electronics & Communication'),
+('student3', '703b0a3d6ad75b649a28adde7d83c6251da457549263bc7ff45ec709b0a8448b', 'David Kim',         'david.kim@student.college.edu',        '9123456782', 'STUDENT', 'ME-2024-015', 'Mechanical Engineering')
+ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), full_name=VALUES(full_name);
 
 INSERT INTO events (event_code, title, description, category, date_time, venue, max_capacity, available_seats, status, created_by)
 VALUES
